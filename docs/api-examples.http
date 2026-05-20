@@ -1,0 +1,99 @@
+### CodeReview AI — API Examples
+### Base URL: http://localhost:8080
+
+@baseUrl = http://localhost:8080
+@token = {{login.response.body.token}}
+
+### =========== AUTH ===========
+
+### Register
+# @name register
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "name": "Fabrício Júnio",
+  "email": "fabricio@example.com",
+  "password": "password123"
+}
+
+### Login
+# @name login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "fabricio@example.com",
+  "password": "password123"
+}
+
+### =========== REVIEWS ===========
+
+### Submit Java code for review
+# @name submitJava
+POST {{baseUrl}}/api/v1/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "language": "java",
+  "sourceCode": "public class UserService {\n    private List<User> users = new ArrayList<>();\n\n    public User getUser(int id) {\n        for (User u : users) {\n            if (u.getId() == id) return u;\n        }\n        return null;\n    }\n\n    public void saveUser(User user) {\n        users.add(user);\n        System.out.println(\"User saved: \" + user);\n        // TODO: persist to DB\n    }\n}",
+  "filename": "UserService.java"
+}
+
+### Submit Python code for review
+POST {{baseUrl}}/api/v1/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "language": "python",
+  "sourceCode": "def calculate_total(items=[]):\n    total = 0\n    for i in range(len(items)):\n        total = total + items[i]['price']\n    return total\n\ndef get_user(id):\n    import requests\n    r = requests.get('http://api.example.com/users/' + id)\n    return r.json()",
+  "filename": "calculator.py"
+}
+
+### Submit JavaScript code for review
+POST {{baseUrl}}/api/v1/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "language": "javascript",
+  "sourceCode": "function fetchData(url, callback) {\n  fetch(url)\n    .then(res => res.json())\n    .then(data => {\n      processData(data, function(result) {\n        saveResult(result, function(saved) {\n          callback(saved);\n        });\n      });\n    });\n}",
+  "filename": "api.js"
+}
+
+### Submit from GitHub URL
+POST {{baseUrl}}/api/v1/reviews/github
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "githubUrl": "https://github.com/fabriciojunio/codereview-ai/blob/main/examples/SampleService.java"
+}
+
+### =========== RESULTS ===========
+
+### Get result by ticket ID
+GET {{baseUrl}}/api/v1/reviews/{{submitJava.response.body.ticketId}}
+Authorization: Bearer {{token}}
+
+### Get review history (paginated)
+GET {{baseUrl}}/api/v1/reviews/history?page=0&size=10
+Authorization: Bearer {{token}}
+
+### Stream analysis via SSE
+GET {{baseUrl}}/api/v1/reviews/{{submitJava.response.body.ticketId}}/stream
+Authorization: Bearer {{token}}
+Accept: text/event-stream
+
+### =========== HEALTH ===========
+
+### Actuator health
+GET {{baseUrl}}/actuator/health
+
+### Prometheus metrics
+GET {{baseUrl}}/actuator/prometheus
+
+### Ping
+GET {{baseUrl}}/api/v1/ping

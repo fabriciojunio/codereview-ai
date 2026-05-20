@@ -1,0 +1,119 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codereview-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/codereview
+      SPRING_DATASOURCE_USERNAME: codereview
+      SPRING_DATASOURCE_PASSWORD: codereview123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: codellama
+      JWT_SECRET: changeme-use-a-very-long-secret-key-in-production-256bits
+      JWT_EXPIRATION_MS: 86400000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - codereview-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: codereview-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: codereview
+      POSTGRES_USER: codereview
+      POSTGRES_PASSWORD: codereview123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codereview"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codereview-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: codereview-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codereview-net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: codereview-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - codereview-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: codereview-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - codereview-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Remove the deploy section above if you don't have an NVIDIA GPU
+
+networks:
+  codereview-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  ollama_data:
