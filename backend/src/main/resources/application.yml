@@ -60,7 +60,7 @@ review:
   max-lines: ${REVIEW_MAX_LINES:500}
 
 jwt:
-  secret: ${JWT_SECRET:bXlzdXBlcnNlY3JldGtleW15c3VwZXJzZWNyZXRrZXkxMjM0NTY3ODkwMTIzNA==}
+  secret: ${JWT_SECRET}
   expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 management:
@@ -81,10 +81,9 @@ management:
 
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    enabled: false
   swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
+    enabled: false
 
 logging:
   level:
