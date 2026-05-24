@@ -5,6 +5,10 @@ spring:
       hibernate:
         format_sql: true
 
+jwt:
+  # Chave usada APENAS em desenvolvimento local. Em produção, use JWT_SECRET via variável de ambiente.
+  secret: "dev-only-jwt-secret-key-change-in-production-32c"
+
 springdoc:
   api-docs:
     enabled: true
