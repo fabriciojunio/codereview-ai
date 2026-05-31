@@ -8,7 +8,7 @@
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange?logo=rabbitmq)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 
-Plataforma de code review automatizado com **LLM local via Ollama** — sem APIs externas, sem vazamento de dados. Detecta bugs, code smells, violações SOLID e atribui uma nota de qualidade para código **Java**, **Python** e **JavaScript**.
+Plataforma de code review automatizado com **LLM local via Ollama**: sem APIs externas, sem vazamento de dados. Detecta bugs, code smells, violações SOLID e atribui uma nota de qualidade para código **Java**, **Python** e **JavaScript**.
 
 > Feito por [Fabrício Júnio](https://github.com/fabriciojunio)
 
@@ -17,10 +17,10 @@ Plataforma de code review automatizado com **LLM local via Ollama** — sem APIs
 ## Funcionalidades
 
 - Submissão de código via texto, upload de arquivo ou URL do GitHub
-- Fila de processamento assíncrono (RabbitMQ) — receba um ticket ID, consulte o resultado
+- Fila de processamento assíncrono (RabbitMQ): receba um ticket ID, consulte o resultado
 - Análise estruturada: bugs, code smells, violações SOLID, sugestões de refatoração, nota de qualidade (0-100)
 - Server-Sent Events para streaming da análise em tempo real
-- Cache Redis de 24h — mesmo código = resultado instantâneo
+- Cache Redis de 24h: mesmo código = resultado instantâneo
 - Autenticação JWT + rate limiting (20 reviews/hora)
 - Métricas Prometheus + Spring Actuator
 
