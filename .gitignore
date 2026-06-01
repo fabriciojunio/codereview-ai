@@ -25,3 +25,5 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+.github/java-upgrade/
