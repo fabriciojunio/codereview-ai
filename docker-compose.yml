@@ -8,21 +8,23 @@ services:
     container_name: codereview-app
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/codereview
-      SPRING_DATASOURCE_USERNAME: codereview
-      SPRING_DATASOURCE_PASSWORD: codereview123
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-codereview}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-codereview}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: codellama
-      JWT_SECRET: changeme-use-a-very-long-secret-key-in-production-256bits
-      JWT_EXPIRATION_MS: 86400000
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-codellama}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,8 +45,8 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_DB: codereview
-      POSTGRES_USER: codereview
-      POSTGRES_PASSWORD: codereview123
+      POSTGRES_USER: ${DB_USER:-codereview}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -78,8 +80,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-codereview}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -91,7 +93,7 @@ services:
       - codereview-net
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.5.4
     container_name: codereview-ollama
     ports:
       - "11434:11434"
