@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.4</version>
+        <version>3.3.13</version>
         <relativePath/>
     </parent>
 
@@ -22,6 +22,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <testcontainers.version>1.20.1</testcontainers.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <dependency-check.version>10.0.4</dependency-check.version>
     </properties>
 
     <dependencies>
@@ -188,4 +189,39 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Análise de dependências vulneráveis (OWASP). Ativar com: mvn -Psecurity verify -->
+        <profile>
+            <id>security</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency-check.version}</version>
+                        <configuration>
+                            <!-- Falha o build a partir de CVSS 7.0 (High/Critical) -->
+                            <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <formats>
+                                <format>HTML</format>
+                                <format>SARIF</format>
+                            </formats>
+                            <suppressionFiles>
+                                <suppressionFile>owasp-suppressions.xml</suppressionFile>
+                            </suppressionFiles>
+                            <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
