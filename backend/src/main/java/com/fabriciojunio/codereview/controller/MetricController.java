@@ -14,7 +14,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/metrics")
@@ -29,8 +28,7 @@ public class MetricController {
     public Page<MetricResponse> myMetrics(
             @AuthenticationPrincipal UserDetails principal,
             @PageableDefault(size = 20) Pageable pageable) {
-        UUID userId = UUID.fromString(principal.getUsername());
-        return metricService.findByUser(userId, pageable);
+        return metricService.findByUserEmail(principal.getUsername(), pageable);
     }
 
     @GetMapping("/cache-hit-rate")
