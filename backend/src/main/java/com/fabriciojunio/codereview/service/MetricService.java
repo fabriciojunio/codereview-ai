@@ -5,9 +5,11 @@ import com.fabriciojunio.codereview.model.AnalysisMetric;
 import com.fabriciojunio.codereview.model.Review;
 import com.fabriciojunio.codereview.model.User;
 import com.fabriciojunio.codereview.repository.MetricRepository;
+import com.fabriciojunio.codereview.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ import java.util.UUID;
 public class MetricService {
 
     private final MetricRepository metricRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public void record(Review review, User user, String language, String model,
@@ -33,6 +36,18 @@ public class MetricService {
             .cacheHit(cacheHit)
             .build();
         metricRepository.save(metric);
+    }
+
+    /**
+     * Resolve o usuário autenticado pelo e-mail (subject do JWT) e retorna suas métricas.
+     * O principal do Spring Security carrega o e-mail como username, portanto o id
+     * precisa ser obtido do repositório antes da consulta.
+     */
+    @Transactional(readOnly = true)
+    public Page<MetricResponse> findByUserEmail(String email, Pageable pageable) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+        return findByUser(user.getId(), pageable);
     }
 
     @Transactional(readOnly = true)
