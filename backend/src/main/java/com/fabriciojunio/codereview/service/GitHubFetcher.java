@@ -43,6 +43,12 @@ public class GitHubFetcher {
         String filePath = matcher.group(4);
         String extension = matcher.group(5);
 
+        // Defesa em profundidade contra path traversal: mesmo com o host fixo em
+        // raw.githubusercontent.com, segmentos ".." poderiam reposicionar o caminho.
+        if (filePath.contains("..") || owner.contains("..") || repo.contains("..") || branch.contains("..")) {
+            throw new IllegalArgumentException("Invalid GitHub file URL (path traversal): " + githubUrl);
+        }
+
         Language language = switch (extension) {
             case "java" -> Language.java;
             case "py" -> Language.python;
