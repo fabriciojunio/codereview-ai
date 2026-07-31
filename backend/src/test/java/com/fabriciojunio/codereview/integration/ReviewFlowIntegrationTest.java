@@ -21,6 +21,9 @@ import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -39,8 +42,18 @@ class ReviewFlowIntegrationTest {
     @Container
     static RabbitMQContainer rabbitmq = new RabbitMQContainer("rabbitmq:3.13-alpine");
 
+    /**
+     * Segredo só deste teste. Em produção vem de JWT_SECRET, que não tem
+     * valor padrão de propósito: aplicação sem segredo configurado tem que
+     * se recusar a subir, e não cair num valor conhecido. O teste então
+     * precisa trazer o seu, senão o contexto não sobe.
+     */
+    private static final String SEGREDO_DE_TESTE = Base64.getEncoder().encodeToString(
+            "segredo-exclusivo-do-teste-de-integracao-com-256-bits".getBytes(StandardCharsets.UTF_8));
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("jwt.secret", () -> SEGREDO_DE_TESTE);
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
