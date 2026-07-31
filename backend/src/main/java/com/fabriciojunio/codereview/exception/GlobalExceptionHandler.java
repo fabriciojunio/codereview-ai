@@ -48,6 +48,20 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    /**
+     * Revisão inexistente e revisão de outra pessoa caem os dois aqui, e
+     * de propósito: responder 403 para a segunda contaria ao curioso que
+     * aquele ticket existe. Do lado de fora, os dois casos são iguais.
+     */
+    @ExceptionHandler(ReviewNotFoundException.class)
+    public ProblemDetail handleReviewNotFound(ReviewNotFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        pd.setTitle("Not Found");
+        pd.setType(URI.create("urn:codereview:error:not-found"));
+        pd.setProperty("timestamp", Instant.now());
+        return pd;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
