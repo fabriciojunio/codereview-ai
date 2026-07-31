@@ -17,16 +17,75 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-      - name: Build e testes (unitários e de segurança)
+
+      # O teste de fluxo completo sobe contêineres de verdade e roda no job
+      # "integracao", logo abaixo. Aqui ficam os testes unitários, que são o
+      # gate rápido: precisam responder em segundos para servir de retorno
+      # imediato no pull request.
+      - name: Testes unitários e gate de cobertura
         working-directory: backend
-        # O teste de contexto completo (ReviewFlowIntegrationTest) depende de
-        # infraestrutura (banco/mensageria) não provisionada neste gate e roda
-        # em um job dedicado. Aqui rodam os testes unitários e de segurança.
         run: mvn -B verify -Dtest='!ReviewFlowIntegrationTest' -DfailIfNoTests=false
+
       - name: Publicar relatórios de teste
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+
+      - name: Publicar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-jacoco
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+
+      - name: Resumo da cobertura
+        if: always()
+        working-directory: backend
+        run: |
+          arquivo=target/site/jacoco/jacoco.xml
+          [ -f "$arquivo" ] || exit 0
+          python3 - "$arquivo" <<'FIM' >> "$GITHUB_STEP_SUMMARY"
+          import sys, xml.etree.ElementTree as ET
+          raiz = ET.parse(sys.argv[1]).getroot()
+          print("## Cobertura\n")
+          print("| Contador | Cobertura | Mínimo |")
+          print("|----------|-----------|--------|")
+          minimos = {"INSTRUCTION": "70%", "BRANCH": "60%"}
+          for c in raiz.findall("counter"):
+              tipo = c.get("type")
+              if tipo not in minimos:
+                  continue
+              perdido, coberto = int(c.get("missed")), int(c.get("covered"))
+              total = perdido + coberto
+              if total:
+                  print(f"| {tipo} | {coberto/total*100:.1f}% | {minimos[tipo]} |")
+          FIM
+
+  integracao:
+    name: Teste de fluxo completo
+    runs-on: ubuntu-latest
+    # Sobe PostgreSQL e RabbitMQ com Testcontainers, então é mais lento que o
+    # gate unitário. Roda em paralelo para não atrasar o retorno do pull request.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Teste de integração com contêineres reais
+        working-directory: backend
+        run: mvn -B test -Dtest='ReviewFlowIntegrationTest' -DfailIfNoTests=false
+
+      - name: Publicar relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-integracao
           path: backend/target/surefire-reports/
           if-no-files-found: ignore
