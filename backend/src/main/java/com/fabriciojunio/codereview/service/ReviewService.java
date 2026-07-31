@@ -3,6 +3,7 @@ package com.fabriciojunio.codereview.service;
 import com.fabriciojunio.codereview.dto.ReviewRequest;
 import com.fabriciojunio.codereview.dto.ReviewResponse;
 import com.fabriciojunio.codereview.exception.RateLimitExceededException;
+import com.fabriciojunio.codereview.exception.ReviewNotFoundException;
 import com.fabriciojunio.codereview.messaging.ReviewProducer;
 import com.fabriciojunio.codereview.model.Bug;
 import com.fabriciojunio.codereview.model.CodeSmell;
@@ -117,7 +118,7 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public ReviewResponse getResult(UUID ticketId, String userEmail) {
         Review review = reviewRepository.findByIdWithResult(ticketId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + ticketId));
+                .orElseThrow(() -> new ReviewNotFoundException(ticketId));
 
         validateOwnership(review, userEmail);
         return toResponse(review);
@@ -130,7 +131,7 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public String getSourceCode(UUID ticketId, String userEmail) {
         Review review = reviewRepository.findById(ticketId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + ticketId));
+                .orElseThrow(() -> new ReviewNotFoundException(ticketId));
         validateOwnership(review, userEmail);
         return review.getSourceCode();
     }
@@ -142,7 +143,7 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public Language getLanguage(UUID ticketId, String userEmail) {
         Review review = reviewRepository.findById(ticketId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + ticketId));
+                .orElseThrow(() -> new ReviewNotFoundException(ticketId));
         validateOwnership(review, userEmail);
         return review.getLanguage();
     }
@@ -219,7 +220,7 @@ public class ReviewService {
 
     private void validateOwnership(Review review, String userEmail) {
         if (!review.getUser().getEmail().equals(userEmail)) {
-            throw new IllegalArgumentException("Review not found: " + review.getId());
+            throw new ReviewNotFoundException(review.getId());
         }
     }
 
