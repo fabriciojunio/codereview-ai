@@ -3,6 +3,7 @@ package com.fabriciojunio.codereview.service;
 import com.fabriciojunio.codereview.dto.ReviewRequest;
 import com.fabriciojunio.codereview.dto.ReviewResponse;
 import com.fabriciojunio.codereview.exception.RateLimitExceededException;
+import com.fabriciojunio.codereview.exception.ReviewNotFoundException;
 import com.fabriciojunio.codereview.messaging.ReviewProducer;
 import com.fabriciojunio.codereview.model.Review;
 import com.fabriciojunio.codereview.model.Review.Language;
@@ -97,8 +98,13 @@ class ReviewServiceTest {
                 .isInstanceOf(RateLimitExceededException.class);
     }
 
+    /**
+     * Pedir a revisão de outra pessoa responde igual a pedir uma que não
+     * existe, e a API traduz isso em 404. Antes virava 400, que é status
+     * errado para recurso inexistente e atrapalha o monitoramento.
+     */
     @Test
-    void getResult_wrongOwner_throwsIllegalArgumentException() {
+    void getResult_wrongOwner_throwsReviewNotFound() {
         User otherUser = User.builder()
                 .id(UUID.randomUUID())
                 .email("other@example.com")
@@ -114,6 +120,6 @@ class ReviewServiceTest {
         when(reviewRepository.findByIdWithResult(any())).thenReturn(Optional.of(review));
 
         assertThatThrownBy(() -> reviewService.getResult(review.getId(), "test@example.com"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ReviewNotFoundException.class);
     }
 }
