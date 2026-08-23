@@ -1,198 +1,148 @@
 # CodeReview AI
 
-![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3-green?logo=springboot)
-![Ollama](https://img.shields.io/badge/LLM-Ollama-black?logo=ollama)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
-![Redis](https://img.shields.io/badge/Redis-7-red?logo=redis)
-![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange?logo=rabbitmq)
-![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
+Serviço de análise de código com modelo de linguagem rodando na própria infraestrutura. O
+código submetido não sai da rede: em vez de chamar uma API de terceiro, a aplicação conversa
+com um Ollama local. Devolve bugs, code smells, violação de SOLID e uma nota de 0 a 100 para
+Java, Python e JavaScript.
 
-Plataforma de code review automatizado com **LLM local via Ollama**: sem APIs externas, sem vazamento de dados. Detecta bugs, code smells, violações SOLID e atribui uma nota de qualidade para código **Java**, **Python** e **JavaScript**.
+`Java 21` · `Spring Boot 3.3` · `PostgreSQL` · `Redis` · `RabbitMQ` · `Ollama` · `Docker`
 
-> Feito por [Fabrício Júnio](https://github.com/fabriciojunio)
+## O problema
 
----
+Ferramenta de review com IA quase sempre manda o código para um servidor que não é seu. Em
+empresa com contrato de confidencialidade, código de cliente ou requisito de LGPD, isso já
+encerra a conversa. A alternativa é rodar o modelo dentro de casa, e aí aparece o problema
+real: inferência de LLM em CPU leva de 10 a 60 segundos por arquivo. Uma requisição HTTP
+síncrona não sobrevive a isso.
 
-## Funcionalidades
+O projeto existe para resolver essa segunda parte. A análise em si é a parte fácil.
 
-- Submissão de código via texto, upload de arquivo ou URL do GitHub
-- Fila de processamento assíncrono (RabbitMQ): receba um ticket ID, consulte o resultado
-- Análise estruturada: bugs, code smells, violações SOLID, sugestões de refatoração, nota de qualidade (0-100)
-- Server-Sent Events para streaming da análise em tempo real
-- Cache Redis de 24h: mesmo código = resultado instantâneo
-- Autenticação JWT + rate limiting (20 reviews/hora)
-- Métricas Prometheus + Spring Actuator
+## Decisões de arquitetura
 
----
+**A submissão não espera a análise.** `POST /reviews` grava o registro, publica na fila e
+devolve um ticket em milissegundos. Quem processa é um consumidor separado. Se o modelo
+demorar um minuto, o problema é do consumidor, não do cliente HTTP, e a aplicação continua
+aceitando submissão enquanto isso.
 
-## Início Rápido
+**Fila em vez de `@Async`.** Uma thread pool do próprio processo seria mais simples, mas
+perde o trabalho em andamento quando a aplicação cai, e é justamente quando ela cai que se
+descobre que perdeu. Com RabbitMQ a mensagem sobrevive ao restart e o consumidor pode ser
+escalado sem tocar na aplicação web.
 
-### Pré-requisitos
-- Docker + Docker Compose
-- 8GB+ RAM (para o modelo CodeLlama)
+**Cache pelo hash do código, não pelo id.** Rodar duas vezes o mesmo arquivo é o caso mais
+comum em desenvolvimento, e é o mais caro. A chave do Redis é o conteúdo submetido, com 24h
+de validade, então reenviar o mesmo código devolve na hora em vez de ocupar a GPU de novo.
 
-### 1. Iniciar todos os serviços
+**SSE em vez de polling.** O resultado chega por `GET /reviews/{ticket}/stream` conforme o
+modelo gera. Server-Sent Events porque o fluxo é de mão única, o que dispensa o WebSocket e
+todo o handshake que vem com ele.
+
+**JWT com filtro próprio, sem sessão.** Não há estado de sessão no servidor, o que é o que
+permite subir mais de uma instância atrás de um balanceador sem sticky session.
+
+**Migração versionada com Flyway.** Nada de `ddl-auto: update`. O esquema é um artefato do
+repositório, não um efeito colateral do Hibernate.
+
+**Prompt por linguagem.** O `PromptBuilder` monta instrução diferente para Java, Python e
+JavaScript, porque pedir "encontre problemas" genericamente devolve conselho genérico. Java
+recebe pergunta sobre generics, recurso não fechado e SOLID; Python sobre PEP8, type hint e
+argumento padrão mutável.
+
+## Fluxo
+
+```
+POST /reviews
+      │
+      ▼
+ReviewController ──► ReviewService ──► RabbitMQ ──┐   devolve ticketId
+                          │                        │
+                     (grava PENDING)               ▼
+                                            ReviewConsumer
+                                                   │
+                                            ReviewProcessor
+                                       ┌───────────┼───────────┐
+                                       ▼           ▼           ▼
+                                 PromptBuilder  Ollama     CacheService
+                                 (por lang)     (local)    (Redis 24h)
+                                                   │
+                                                   ▼
+                                             PostgreSQL
+                                                   │
+                       GET /reviews/{ticket}/stream ──► SSE para o cliente
+```
+
+## Rodando
+
+Precisa de Docker e de uns 8 GB de RAM livres para o modelo.
 
 ```bash
 docker compose up -d
-```
-
-Isso inicia: **App** + **PostgreSQL** + **Redis** + **RabbitMQ** + **Ollama**
-
-### 2. Baixar o modelo LLM (apenas na primeira vez)
-
-```bash
 docker exec -it codereview-ollama ollama pull codellama
-# Ou para melhores resultados:
-docker exec -it codereview-ollama ollama pull deepseek-coder
 ```
 
-### 3. Testar a API
+O `docker-compose.yml` sobe aplicação, PostgreSQL, Redis, RabbitMQ e Ollama. Tem reserva de
+GPU Nvidia declarada: sem placa, remova o bloco `deploy` e a inferência roda em CPU, mais
+devagar.
 
 ```bash
-# Registrar
-curl -s -X POST http://localhost:8080/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Dev","email":"dev@example.com","password":"password123"}' | jq .
-
-# Login (copie o token)
+# registrar e pegar o token
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"dev@example.com","password":"password123"}' | jq -r .token)
 
-# Submeter código para review
+# submeter
 TICKET=$(curl -s -X POST http://localhost:8080/api/v1/reviews \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "language": "java",
-    "sourceCode": "public class UserService {\n  private List users = new ArrayList();\n  public Object getUser(int id) {\n    return users.get(id);\n  }\n}",
-    "filename": "UserService.java"
-  }' | jq -r .ticketId)
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"language":"java","sourceCode":"public class A { }","filename":"A.java"}' | jq -r .ticketId)
 
-echo "Ticket: $TICKET"
-
-# Consultar resultado (processamento leva 10-60s dependendo do modelo/hardware)
-curl -s http://localhost:8080/api/v1/reviews/$TICKET \
-  -H "Authorization: Bearer $TOKEN" | jq .
+# resultado
+curl -s http://localhost:8080/api/v1/reviews/$TICKET -H "Authorization: Bearer $TOKEN" | jq .
 ```
 
----
+Swagger em `http://localhost:8080/swagger-ui.html`.
 
-## Referência da API
+## API
 
-Documentação interativa completa em: **http://localhost:8080/swagger-ui.html**
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/api/v1/auth/register` | Registrar novo usuário |
-| `POST` | `/api/v1/auth/login` | Obter token JWT |
-| `POST` | `/api/v1/reviews` | Submeter código (texto) |
-| `POST` | `/api/v1/reviews/upload` | Submeter código (arquivo) |
-| `POST` | `/api/v1/reviews/github` | Submeter via URL do GitHub |
-| `GET` | `/api/v1/reviews/{ticketId}` | Obter resultado da análise |
-| `GET` | `/api/v1/reviews/{ticketId}/stream` | Streaming via SSE |
+| Método | Rota | O que faz |
+|---|---|---|
+| `POST` | `/api/v1/auth/register` | Cria usuário |
+| `POST` | `/api/v1/auth/login` | Devolve o JWT |
+| `POST` | `/api/v1/reviews` | Submete código em texto |
+| `POST` | `/api/v1/reviews/upload` | Submete arquivo |
+| `POST` | `/api/v1/reviews/github` | Submete a partir de uma URL do GitHub |
+| `GET` | `/api/v1/reviews/{ticketId}` | Consulta o resultado |
+| `GET` | `/api/v1/reviews/{ticketId}/stream` | Acompanha por SSE |
 | `GET` | `/api/v1/reviews/history` | Histórico paginado |
 
-### Exemplo de Resposta
+A resposta traz `score`, `summary`, `bugs`, `code_smells`, `solid_violations`,
+`refactoring_suggestions` e `positive_aspects`, cada achado com linha, severidade e sugestão.
 
-```json
-{
-  "ticketId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "status": "completed",
-  "language": "java",
-  "score": 52,
-  "summary": "O código é funcional mas possui problemas críticos com tipos raw, potencial IndexOutOfBoundsException e violações SRP.",
-  "bugs": [
-    {
-      "line": 3,
-      "severity": "HIGH",
-      "description": "users.get(id) lançará IndexOutOfBoundsException se o id estiver fora do range ou for inválido",
-      "suggestion": "Valide o id, use Optional<User> como tipo de retorno e verifique os limites antes do acesso"
-    }
-  ],
-  "code_smells": [
-    {
-      "line": 1,
-      "type": "RAW_TYPE",
-      "description": "Usando List sem parâmetro genérico (tipo raw)",
-      "suggestion": "Use List<User> com tipagem genérica adequada"
-    }
-  ],
-  "solid_violations": [
-    {
-      "principle": "SRP",
-      "description": "UserService mistura armazenamento de dados (ArrayList) com lógica de negócio",
-      "suggestion": "Separe o acesso a dados em uma interface UserRepository"
-    }
-  ],
-  "refactoring_suggestions": [
-    "Introduza uma interface UserRepository para abstração de acesso a dados",
-    "Retorne Optional<User> em vez de Object para tratar usuários ausentes com segurança"
-  ],
-  "positive_aspects": [
-    "Estrutura simples e legível"
-  ],
-  "submittedAt": "2026-04-11T15:00:00Z",
-  "analyzedAt": "2026-04-11T15:00:45Z"
-}
-```
+## Testes
 
----
-
-## Arquitetura
-
-```
-Cliente → ReviewController → ReviewService → RabbitMQ
-                                                ↓
-                                        ReviewConsumer
-                                                ↓
-                                        ReviewProcessor
-                                         ├── PromptBuilder (específico por linguagem)
-                                         ├── OllamaService (LLM local)
-                                         └── CacheService (Redis)
-                                                ↓
-                                          PostgreSQL
-```
-
-Veja [docs/architecture.md](docs/architecture.md) para detalhes completos.
-
----
-
-## Configuração
-
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `OLLAMA_MODEL` | `codellama` | Nome do modelo LLM |
-| `OLLAMA_BASE_URL` | `http://ollama:11434` | Endpoint do Ollama |
-| `JWT_SECRET` | *(altere!)* | Chave de assinatura JWT (Base64) |
-| `JWT_EXPIRATION_MS` | `86400000` | Validade do token (24h) |
-
-> **Aceleração por GPU**: O `docker-compose.yml` inclui reserva de GPU Nvidia. Remova a seção `deploy` se não tiver GPU (inferência por CPU é mais lenta mas funciona).
-
----
-
-## Desenvolvimento
+88 testes em 17 classes. Os de integração usam Testcontainers, então sobem PostgreSQL e
+RabbitMQ de verdade em vez de mock, e as chamadas ao Ollama são atendidas por um MockWebServer,
+porque teste que depende de resposta de LLM não é determinístico.
 
 ```bash
-# Executar com perfil dev (logs verbosos, SQL impresso)
 cd backend
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
-
-# Executar testes
 mvn test
-
-# Executar apenas testes de integração
 mvn test -Dtest="*IntegrationTest"
 ```
 
+O CI roda build e testes, mais CodeQL e verificação de dependência vulnerável a cada push.
+
+## Limitações conhecidas
+
+O modelo é a parte menos confiável do sistema, e o projeto assume isso. A nota de 0 a 100 é
+uma opinião do LLM, não uma métrica calculada: serve para ordenar arquivos, não para virar
+critério de merge. Achado apontado em linha errada acontece, principalmente em arquivo grande.
+
+O `codellama` cabe em 8 GB e é o padrão porque roda na máquina da maioria das pessoas. O
+`deepseek-coder` acha bem mais coisa e erra menos linha, ao custo de mais memória.
+
+Não há retentativa com backoff no consumidor: mensagem que falha volta para a fila e pode
+entrar em laço se o erro for determinístico. É o próximo item.
+
 ---
 
-## Linguagens Suportadas
-
-| Linguagem | Verificações |
-|-----------|-------------|
-| Java | SOLID, Clean Code, null safety, resource leaks, generics |
-| Python | PEP8, idiomas Pythônicos, type hints, defaults mutáveis |
-| JavaScript | Padrões async, tratamento de promises, ES2024+ moderno |
+Escrito por [Fabrício Júnio](https://github.com/fabriciojunio).
