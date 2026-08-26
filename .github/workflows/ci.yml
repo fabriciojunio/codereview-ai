@@ -11,21 +11,23 @@ jobs:
     name: Build e testes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-      - name: Build e testes (unitários e de segurança)
+      - name: Build e testes
         working-directory: backend
-        # O teste de contexto completo (ReviewFlowIntegrationTest) depende de
-        # infraestrutura (banco/mensageria) não provisionada neste gate e roda
-        # em um job dedicado. Aqui rodam os testes unitários e de segurança.
-        run: mvn -B verify -Dtest='!ReviewFlowIntegrationTest' -DfailIfNoTests=false
+        # Roda a suite inteira, incluindo o teste que sobe a aplicacao. Ele
+        # deixou de exigir Docker: o Postgres e embutido pelo proprio teste e o
+        # broker e substituido por um dublê. Antes essa classe era excluida
+        # daqui, o que significava que o unico teste capaz de provar que as
+        # pecas funcionam juntas nunca era executado.
+        run: mvn -B verify
       - name: Publicar relatórios de teste
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: surefire-reports
           path: backend/target/surefire-reports/

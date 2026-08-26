@@ -20,7 +20,7 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <testcontainers.version>1.20.1</testcontainers.version>
+        <postgres.embutido.version>16.2.0</postgres.embutido.version>
         <springdoc.version>2.6.0</springdoc.version>
         <dependency-check.version>10.0.4</dependency-check.version>
     </properties>
@@ -148,22 +148,28 @@
             <artifactId>spring-rabbit-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+            Postgres de verdade para o teste de integracao, sem exigir Docker
+            na maquina. Substituiu o Testcontainers porque o gate do CI estava
+            pulando justamente o unico teste que sobe a aplicacao inteira, e
+            teste que nao roda nao protege nada.
+        -->
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${testcontainers.version}</version>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>2.2.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>${testcontainers.version}</version>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-windows-amd64</artifactId>
+            <version>${postgres.embutido.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>rabbitmq</artifactId>
-            <version>${testcontainers.version}</version>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-linux-amd64</artifactId>
+            <version>${postgres.embutido.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
