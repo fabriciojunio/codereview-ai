@@ -32,8 +32,20 @@ With RabbitMQ the message survives a restart and the consumer scales without tou
 application.
 
 **Cache keyed by the code hash, not by id.** Running the same file twice is the most common case
-in development and the most expensive one. The Redis key is the submitted content, with a 24-hour
-TTL, so resubmitting the same code answers instantly instead of occupying the GPU again.
+in development and the most expensive one. The Redis key is the submitted content, so
+resubmitting the same code answers instantly instead of occupying the GPU again.
+
+**The TTL varies on every write.** A fixed TTL makes every key written in the same batch expire
+in the same second: a bulk analysis today quietly becomes a burst of cache misses exactly 24
+hours later, all hitting the GPU at once. Spreading expiry across a 10% band turns the spike into
+a slope.
+
+**Only one consumer analyses a given piece of code at a time.** Ten identical submissions landing
+on the queue together all find an empty cache and, with no defence, produce ten inferences for
+the same answer. Whoever arrives first takes a lease in Redis, written with `SET NX` so there is
+no window between checking and marking. The others wait briefly, re-check, and analyse on their
+own if the wait runs out: the lease is a saving, not a lock, because the process that took it may
+have died.
 
 **SSE instead of polling.** The result arrives on `GET /reviews/{ticket}/stream` as the model
 generates it. Server-Sent Events because the flow is one-way, which makes a WebSocket and its
@@ -119,7 +131,7 @@ suggestion.
 
 ## Tests
 
-112 tests across 17 classes, with a coverage gate enforced in the build. Calls to Ollama are
+129 tests across 18 classes, with a coverage gate enforced in the build. Calls to Ollama are
 served by a MockWebServer, because a test that depends on an LLM response is not deterministic,
 and the full-flow test boots the whole application without requiring Docker: PostgreSQL is
 embedded by the test itself and the broker is replaced by a stub.
