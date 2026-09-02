@@ -6,7 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -24,6 +27,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Optional;
 
 @Configuration
 @EnableWebSecurity
@@ -32,6 +36,12 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
+
+    /**
+     * Presente só quando um provedor de identidade externo foi configurado.
+     * Ver {@link IdentidadeExterna}.
+     */
+    private final Optional<Converter<Jwt, ? extends AbstractAuthenticationToken>> conversorDeTokenExterno;
 
     /**
      * Origens permitidas para CORS. Vazio por padrão (deny-by-default): nenhuma
@@ -43,7 +53,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        return http
+        http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -65,8 +75,33 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        ligarIdentidadeExterna(http);
+
+        return http.build();
+    }
+
+    /**
+     * Liga a validação de token de terceiro, quando existe um provedor.
+     *
+     * <p>A chamada só acontece quando há conversor. Chamar
+     * {@code oauth2ResourceServer} com o bloco vazio não é inofensivo: o
+     * Spring Security lança na subida dizendo que só aceita JWT ou token
+     * opaco e não achou nenhum dos dois. Descobri isso quebrando nove testes
+     * de contexto de uma vez.
+     *
+     * <p>Os dois modos convivem porque o filtro próprio ignora token que não
+     * emitiu, e o servidor de recursos ignora requisição que já chegou
+     * autenticada. Quem apresenta um token do provedor entra por aqui; quem
+     * usa o login local entra pelo filtro.
+     */
+    private void ligarIdentidadeExterna(HttpSecurity http) throws Exception {
+        if (conversorDeTokenExterno.isEmpty()) {
+            return;
+        }
+        http.oauth2ResourceServer(oauth2 ->
+                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(conversorDeTokenExterno.get())));
     }
 
     @Bean
