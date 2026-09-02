@@ -165,6 +165,21 @@
             pulando justamente o unico teste que sobe a aplicacao inteira, e
             teste que nao roda nao protege nada.
         -->
+        <!--
+            O embedded-postgres declara commons-lang3 3.14, e no Linux ele
+            chama SystemProperties.getUserName(String), que só existe da 3.15
+            em diante. No Windows esse caminho não é percorrido, então a falha
+            só aparece no CI: NoSuchMethodError na subida do contexto. Fixar a
+            versão aqui resolve, e a linha some quando a biblioteca corrigir a
+            própria declaração.
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.20.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.zonky.test</groupId>
             <artifactId>embedded-postgres</artifactId>
