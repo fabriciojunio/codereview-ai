@@ -32,8 +32,20 @@ descobre que perdeu. Com RabbitMQ a mensagem sobrevive ao restart e o consumidor
 escalado sem tocar na aplicação web.
 
 **Cache pelo hash do código, não pelo id.** Rodar duas vezes o mesmo arquivo é o caso mais
-comum em desenvolvimento, e é o mais caro. A chave do Redis é o conteúdo submetido, com 24h
-de validade, então reenviar o mesmo código devolve na hora em vez de ocupar a GPU de novo.
+comum em desenvolvimento, e é o mais caro. A chave do Redis é o conteúdo submetido, então
+reenviar o mesmo código devolve na hora em vez de ocupar a GPU de novo.
+
+**O prazo do cache varia a cada gravação.** Prazo fixo faz as chaves gravadas no mesmo lote
+vencerem no mesmo segundo: uma análise em massa hoje vira, sem ninguém perceber, uma rajada de
+ausências de cache exatamente 24 horas depois, todas indo para a GPU juntas. Espalhar o
+vencimento em uma faixa de 10% converte o pico numa ladeira.
+
+**Só um consumidor analisa cada código por vez.** Dez submissões iguais caindo na fila juntas
+encontram o cache vazio e, sem defesa, geram dez inferências para produzir a mesma resposta.
+Quem chega primeiro fica com uma reserva no Redis, gravada com `SET NX` para não existir janela
+entre testar e marcar. Os outros esperam pouco, reconsultam, e analisam por conta própria se a
+espera esgotar: a reserva é uma economia, não uma trava, porque o processo que a tomou pode ter
+morrido.
 
 **SSE em vez de polling.** O resultado chega por `GET /reviews/{ticket}/stream` conforme o
 modelo gera. Server-Sent Events porque o fluxo é de mão única, o que dispensa o WebSocket e
@@ -121,7 +133,7 @@ A resposta traz `score`, `summary`, `bugs`, `code_smells`, `solid_violations`,
 
 ## Testes
 
-112 testes em 17 classes, com o gate de cobertura travado no build. As chamadas ao Ollama são
+129 testes em 18 classes, com o gate de cobertura travado no build. As chamadas ao Ollama são
 atendidas por um MockWebServer, porque teste que depende de resposta de LLM não é determinístico,
 e o teste de fluxo completo sobe a aplicação inteira sem exigir Docker instalado: o PostgreSQL é
 embutido pelo próprio teste e o broker é substituído por um dublê.

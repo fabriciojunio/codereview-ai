@@ -9,6 +9,7 @@ import com.fabriciojunio.codereview.repository.ReviewRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -48,9 +49,18 @@ class ReviewProcessorTest {
                 .status(Review.ReviewStatus.PENDING)
                 .build();
 
+        // Espera curta: estes testes exercitam a análise, não o tempo de
+        // espera. Com o padrão de 6 x 5s, um caminho de espera acidental faz a
+        // classe levar um minuto sem provar nada a mais.
+        reviewProcessor.tentativasDeEspera = 2;
+        reviewProcessor.intervaloDaEsperaMs = 1;
+
         when(reviewRepository.findById(testReview.getId())).thenReturn(Optional.of(testReview));
         when(reviewRepository.save(any())).thenReturn(testReview);
         when(cacheService.getCachedResult(anyString(), anyString())).thenReturn(Optional.empty());
+        // Caso normal: ninguém mais está analisando o mesmo código. Frouxo
+        // porque o teste de acerto de cache nem chega a pedir a reserva.
+        lenient().when(cacheService.reserveProcessing(anyString(), anyString())).thenReturn(true);
     }
 
     @Test
@@ -89,6 +99,57 @@ class ReviewProcessorTest {
 
         verify(ollamaService, never()).analyze(anyString());
         assertThat(testReview.getStatus()).isEqualTo(Review.ReviewStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("quem não consegue a reserva aproveita o resultado de quem estava analisando")
+    void aproveitaAnaliseDeOutroProcesso() {
+        when(cacheService.reserveProcessing(anyString(), anyString())).thenReturn(false);
+        when(cacheService.getCachedResult(anyString(), anyString()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(ReviewResponseFixture.completed()));
+
+        reviewProcessor.process(testReview.getId());
+
+        verify(ollamaService, never()).analyze(anyString());
+        assertThat(testReview.getStatus()).isEqualTo(Review.ReviewStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("espera esgotada sem resultado: analisa por conta própria em vez de travar a mensagem")
+    void esperaEsgotadaAnalisaAssimMesmo() {
+        when(cacheService.reserveProcessing(anyString(), anyString())).thenReturn(false);
+        when(cacheService.getCachedResult(anyString(), anyString())).thenReturn(Optional.empty());
+        when(promptBuilder.buildPrompt(anyString(), any())).thenReturn("prompt");
+        when(ollamaService.analyze(anyString())).thenReturn(analiseDoModelo());
+
+        reviewProcessor.process(testReview.getId());
+
+        // O outro processo pode ter morrido. Travar aqui deixaria a mensagem
+        // presa até a reserva vencer, sem ninguém para liberá-la.
+        verify(ollamaService).analyze(anyString());
+        assertThat(testReview.getStatus()).isEqualTo(Review.ReviewStatus.COMPLETED);
+    }
+
+    @Test
+    @DisplayName("libera a reserva depois de gravar no cache, e não antes")
+    void liberaDepoisDeGravar() {
+        when(promptBuilder.buildPrompt(anyString(), any())).thenReturn("prompt");
+        when(ollamaService.analyze(anyString())).thenReturn(analiseDoModelo());
+
+        reviewProcessor.process(testReview.getId());
+
+        // Liberar antes deixaria quem está esperando encontrar a chave livre e
+        // o cache ainda vazio, e o trabalho seria refeito.
+        var ordem = inOrder(cacheService);
+        ordem.verify(cacheService).cacheResult(anyString(), anyString(), any());
+        ordem.verify(cacheService).releaseProcessing(anyString(), anyString());
+    }
+
+    private static LlmAnalysisResult analiseDoModelo() {
+        return new LlmAnalysisResult(
+                85, "Good code", List.of(), List.of(), List.of(),
+                List.of("Extract method"), List.of("Good naming"));
     }
 
     // Simple fixture helper
