@@ -43,6 +43,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+
+        <!--
+            Aceitar token de um provedor de identidade externo. Na empresa a
+            autenticação quase nunca é da aplicação: ela vem do Keycloak, do
+            Entra ID ou do Okta que o time de identidade já opera. Fica
+            desligado por padrão, e liga apontando o emissor.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
