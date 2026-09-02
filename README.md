@@ -121,9 +121,10 @@ A resposta traz `score`, `summary`, `bugs`, `code_smells`, `solid_violations`,
 
 ## Testes
 
-88 testes em 17 classes. Os de integração usam Testcontainers, então sobem PostgreSQL e
-RabbitMQ de verdade em vez de mock, e as chamadas ao Ollama são atendidas por um MockWebServer,
-porque teste que depende de resposta de LLM não é determinístico.
+112 testes em 17 classes, com o gate de cobertura travado no build. As chamadas ao Ollama são
+atendidas por um MockWebServer, porque teste que depende de resposta de LLM não é determinístico,
+e o teste de fluxo completo sobe a aplicação inteira sem exigir Docker instalado: o PostgreSQL é
+embutido pelo próprio teste e o broker é substituído por um dublê.
 
 ```bash
 cd backend

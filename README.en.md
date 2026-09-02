@@ -119,9 +119,10 @@ suggestion.
 
 ## Tests
 
-88 tests across 17 classes. The integration ones use Testcontainers, so real PostgreSQL and
-RabbitMQ start instead of mocks, and calls to Ollama are served by a MockWebServer, because a
-test that depends on an LLM response is not deterministic.
+112 tests across 17 classes, with a coverage gate enforced in the build. Calls to Ollama are
+served by a MockWebServer, because a test that depends on an LLM response is not deterministic,
+and the full-flow test boots the whole application without requiring Docker: PostgreSQL is
+embedded by the test itself and the broker is replaced by a stub.
 
 ```bash
 cd backend
