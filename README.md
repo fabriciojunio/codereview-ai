@@ -55,7 +55,29 @@ todo o handshake que vem com ele.
 permite subir mais de uma instância atrás de um balanceador sem sticky session.
 
 **Migração versionada com Flyway.** Nada de `ddl-auto: update`. O esquema é um artefato do
-repositório, não um efeito colateral do Hibernate.
+repositório, não um efeito colateral do Hibernate. E migração destrutiva reprova no build:
+`SafeMigrationTest` recusa apagar coluna, renomear e trocar tipo, porque uma publicação sem
+parada deixa as duas versões do código rodando juntas por alguns segundos. Aqui isso é pior que
+o normal, já que a análise é assíncrona: a instância antiga não está só respondendo requisição
+durante a troca, está no meio de trabalho já aceito, e coluna que some nessa janela perde a
+revisão em vez de devolver erro. Quem realmente precisa apagar declara no arquivo, com o motivo,
+numa linha `-- contract:`.
+
+**Rastro distribuído que atravessa a fila.** A métrica diz que a revisão levou quatro minutos; o
+rastro diz onde os quatro minutos foram. O `traceparent` da requisição que aceitou a revisão viaja
+no cabeçalho da mensagem, então a espera na fila, que costuma ser a maior fatia da espera do
+usuário, deixa de cair no vão entre dois rastros desconexos. O formato é o do W3C, o mesmo que
+viaja em cabeçalho HTTP, porque inventar um significaria traduzir na fronteira. O cabeçalho é
+opcional de propósito: mensagem publicada antes desta versão, ou reenfileirada à mão da fila
+morta, ainda precisa ser processada.
+
+**Um trecho de rastro por consulta ao banco.** O `QueryTrace` envolve o `DataSource` em vez de
+instrumentar repositório por repositório, o que pega também o que o JPA emite sozinho:
+carregamento tardio e o caso de uma consulta virar N. Esse é o motivo mais forte para ele
+existir, porque N mais um só aparece quando alguém vê as consultas repetidas enfileiradas na
+linha do tempo, e o grafo de revisão, resultado e etiquetas é exatamente a forma que os produz.
+O valor dos parâmetros não vai junto: o trecho sai da aplicação, e o código revisado não tem por
+que ir com ele.
 
 **Prompt por linguagem.** O `PromptBuilder` monta instrução diferente para Java, Python e
 JavaScript, porque pedir "encontre problemas" genericamente devolve conselho genérico. Java
@@ -133,7 +155,7 @@ A resposta traz `score`, `summary`, `bugs`, `code_smells`, `solid_violations`,
 
 ## Testes
 
-129 testes em 18 classes, com o gate de cobertura travado no build. As chamadas ao Ollama são
+173 testes em 22 classes, com o gate de cobertura travado no build. As chamadas ao Ollama são
 atendidas por um MockWebServer, porque teste que depende de resposta de LLM não é determinístico,
 e o teste de fluxo completo sobe a aplicação inteira sem exigir Docker instalado: o PostgreSQL é
 embutido pelo próprio teste e o broker é substituído por um dublê.

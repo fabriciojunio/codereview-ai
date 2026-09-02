@@ -81,8 +81,18 @@ management:
       prometheus:
         enabled: true
   tracing:
+    # Off by default because a free deployment has no collector, and an
+    # exporter with nowhere to send fills the log with connection errors.
+    # Turning it on means pointing at an endpoint, which is what stops it from
+    # being turned on by accident.
+    enabled: ${TRACING_ENABLED:false}
     sampling:
-      probability: 1.0
+      # Sample everything in development; in production 10% already answers
+      # "where did it get slow" without multiplying storage cost by ten.
+      probability: ${TRACING_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${TRACING_ENDPOINT:http://localhost:4318/v1/traces}
 
 springdoc:
   api-docs:

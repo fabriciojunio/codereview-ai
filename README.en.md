@@ -55,7 +55,29 @@ handshake unnecessary.
 allows more than one instance behind a load balancer without sticky sessions.
 
 **Versioned migrations with Flyway.** No `ddl-auto: update`. The schema is an artifact in the
-repository, not a side effect of Hibernate.
+repository, not a side effect of Hibernate. And a destructive migration fails the build:
+`SafeMigrationTest` refuses dropping a column, renaming one and changing its type, because a
+rolling deploy leaves both versions of the code running together for a few seconds. That is worse
+here than usual, since the analysis is asynchronous: the old instance is not merely answering
+requests during the swap, it is halfway through work it already accepted, and a column that
+disappears in that window loses the review rather than returning an error. Whoever genuinely
+needs to drop declares it in the file, with the reason, on a `-- contract:` line.
+
+**Distributed tracing that survives the queue.** Metrics say the review took four minutes; a
+trace says where the four minutes went. The `traceparent` of the request that accepted the review
+travels in the message header, so the queue wait — usually the largest slice of the user's wait —
+stops falling into the gap between two unrelated traces. The format is W3C, the same one that
+travels in an HTTP header, because inventing one would mean translating at the boundary. The
+header is optional on purpose: a message published before this version, or re-queued by hand from
+the dead letter queue, still has to be processed.
+
+**One trace span per database query.** `QueryTrace` wraps the `DataSource` instead of
+instrumenting repository by repository, which also catches what JPA emits on its own: lazy
+loading and the case of one query turning into N. That is the strongest reason for it to exist,
+because an N+1 only becomes visible when someone sees the repeated statements lined up on a
+timeline, and the review/results/tags graph is exactly the shape that produces them. Parameter
+values do not ride along: the span leaves the application, and the reviewed source has no reason
+to leave with it.
 
 **A prompt per language.** `PromptBuilder` assembles a different instruction for Java, Python and
 JavaScript, because asking "find problems" generically returns generic advice. Java gets asked
@@ -131,7 +153,7 @@ suggestion.
 
 ## Tests
 
-129 tests across 18 classes, with a coverage gate enforced in the build. Calls to Ollama are
+173 tests across 22 classes, with a coverage gate enforced in the build. Calls to Ollama are
 served by a MockWebServer, because a test that depends on an LLM response is not deterministic,
 and the full-flow test boots the whole application without requiring Docker: PostgreSQL is
 embedded by the test itself and the broker is replaced by a stub.

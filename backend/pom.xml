@@ -45,10 +45,10 @@
         </dependency>
 
         <!--
-            Aceitar token de um provedor de identidade externo. Na empresa a
-            autenticação quase nunca é da aplicação: ela vem do Keycloak, do
-            Entra ID ou do Okta que o time de identidade já opera. Fica
-            desligado por padrão, e liga apontando o emissor.
+            Accepting a token from an external identity provider. Inside a
+            company, authentication almost never belongs to the application: it
+            comes from the Keycloak, Entra ID or Okta the identity team already
+            runs. Off by default, turned on by pointing at the issuer.
         -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -111,6 +111,38 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
+        <!--
+          Distributed tracing. Metrics say a review took four minutes; a trace
+          says where the four minutes went. In a flow that hops from an HTTP
+          request to a RabbitMQ queue to an LLM call and back to Postgres, that
+          is the difference between reading four logs and reading one timeline.
+        -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
+
+        <!--
+          One trace span per database query. Wrapping the DataSource catches
+          what JPA emits on its own, which is the point: lazy loading and the
+          one-query-becomes-N problem only show up when someone sees the
+          repeated statements lined up on a timeline.
+        -->
+        <dependency>
+            <groupId>net.ttddyy</groupId>
+            <artifactId>datasource-proxy</artifactId>
+            <version>1.11.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- OpenAPI / Swagger -->
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -160,18 +192,18 @@
             <scope>test</scope>
         </dependency>
         <!--
-            Postgres de verdade para o teste de integracao, sem exigir Docker
-            na maquina. Substituiu o Testcontainers porque o gate do CI estava
-            pulando justamente o unico teste que sobe a aplicacao inteira, e
-            teste que nao roda nao protege nada.
+            A real Postgres for the integration test, without requiring Docker
+            on the machine. It replaced Testcontainers because the CI gate was
+            skipping the one test that boots the whole application, and a test
+            that never runs protects nothing.
         -->
         <!--
-            O embedded-postgres declara commons-lang3 3.14, e no Linux ele
-            chama SystemProperties.getUserName(String), que só existe da 3.15
-            em diante. No Windows esse caminho não é percorrido, então a falha
-            só aparece no CI: NoSuchMethodError na subida do contexto. Fixar a
-            versão aqui resolve, e a linha some quando a biblioteca corrigir a
-            própria declaração.
+            embedded-postgres declares commons-lang3 3.14, and on Linux it
+            calls SystemProperties.getUserName(String), which only exists from
+            3.15 on. On Windows that path is never taken, so the failure only
+            shows up in CI: NoSuchMethodError while the context starts. Pinning
+            the version here fixes it, and this line goes away once the library
+            fixes its own declaration.
         -->
         <dependency>
             <groupId>org.apache.commons</groupId>
