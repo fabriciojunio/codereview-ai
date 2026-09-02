@@ -38,10 +38,10 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
     /**
-     * Presente só quando um provedor de identidade externo foi configurado.
-     * Ver {@link IdentidadeExterna}.
+     * Present only when an external identity provider has been configured.
+     * See {@link ExternalIdentityConfig}.
      */
-    private final Optional<Converter<Jwt, ? extends AbstractAuthenticationToken>> conversorDeTokenExterno;
+    private final Optional<Converter<Jwt, ? extends AbstractAuthenticationToken>> externalTokenConverter;
 
     /**
      * Origens permitidas para CORS. Vazio por padrão (deny-by-default): nenhuma
@@ -77,31 +77,31 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-        ligarIdentidadeExterna(http);
+        enableExternalIdentity(http);
 
         return http.build();
     }
 
     /**
-     * Liga a validação de token de terceiro, quando existe um provedor.
+     * Turns on third-party token validation, when a provider exists.
      *
-     * <p>A chamada só acontece quando há conversor. Chamar
-     * {@code oauth2ResourceServer} com o bloco vazio não é inofensivo: o
-     * Spring Security lança na subida dizendo que só aceita JWT ou token
-     * opaco e não achou nenhum dos dois. Descobri isso quebrando nove testes
-     * de contexto de uma vez.
+     * <p>The call only happens when there is a converter. Calling
+     * {@code oauth2ResourceServer} with an empty block is not harmless: Spring
+     * Security throws on startup saying it accepts either a JWT or an opaque
+     * token and found neither. Nine context tests broke at once before this
+     * guard existed.
      *
-     * <p>Os dois modos convivem porque o filtro próprio ignora token que não
-     * emitiu, e o servidor de recursos ignora requisição que já chegou
-     * autenticada. Quem apresenta um token do provedor entra por aqui; quem
-     * usa o login local entra pelo filtro.
+     * <p>The two modes coexist because the local filter ignores a token it did
+     * not issue, and the resource server ignores a request that arrived already
+     * authenticated. Whoever presents a provider token comes in here; whoever
+     * uses the local login comes in through the filter.
      */
-    private void ligarIdentidadeExterna(HttpSecurity http) throws Exception {
-        if (conversorDeTokenExterno.isEmpty()) {
+    private void enableExternalIdentity(HttpSecurity http) throws Exception {
+        if (externalTokenConverter.isEmpty()) {
             return;
         }
         http.oauth2ResourceServer(oauth2 ->
-                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(conversorDeTokenExterno.get())));
+                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(externalTokenConverter.get())));
     }
 
     @Bean
