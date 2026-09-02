@@ -1,5 +1,7 @@
 # CodeReview AI
 
+*[Read this in English](README.en.md)*
+
 Serviço de análise de código com modelo de linguagem rodando na própria infraestrutura. O
 código submetido não sai da rede: em vez de chamar uma API de terceiro, a aplicação conversa
 com um Ollama local. Devolve bugs, code smells, violação de SOLID e uma nota de 0 a 100 para
