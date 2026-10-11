@@ -4,7 +4,8 @@ import com.fabriciojunio.codereview.dto.ReviewRequest;
 import com.fabriciojunio.codereview.dto.ReviewResponse;
 import com.fabriciojunio.codereview.exception.RateLimitExceededException;
 import com.fabriciojunio.codereview.exception.ReviewNotFoundException;
-import com.fabriciojunio.codereview.messaging.ReviewProducer;
+import com.fabriciojunio.codereview.messaging.ReviewSubmitted;
+import org.springframework.context.ApplicationEventPublisher;
 import com.fabriciojunio.codereview.model.Review;
 import com.fabriciojunio.codereview.model.Review.Language;
 import com.fabriciojunio.codereview.model.User;
@@ -48,7 +49,7 @@ class ReviewServiceIsolatedTest {
 
     @Mock private ReviewRepository reviewRepository;
     @Mock private UserRepository userRepository;
-    @Mock private ReviewProducer reviewProducer;
+    @Mock private ApplicationEventPublisher events;
 
     private ReviewService service;
 
@@ -60,7 +61,7 @@ class ReviewServiceIsolatedTest {
     @BeforeEach
     void preparar() {
         service = new ReviewService(
-                reviewRepository, userRepository, reviewProducer,
+                reviewRepository, userRepository, events,
                 new ObjectMapper(), new SimpleMeterRegistry(),
                 20, 1, 500);
 
@@ -70,6 +71,7 @@ class ReviewServiceIsolatedTest {
                 .build();
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(maria));
+        when(userRepository.findByEmailForSubmission(EMAIL)).thenReturn(Optional.of(maria));
     }
 
     private Review revisaoDe(User dono) {
@@ -105,7 +107,7 @@ class ReviewServiceIsolatedTest {
 
             assertThat(resposta.ticketId()).isEqualTo(TICKET);
             assertThat(resposta.status()).isEqualTo(Review.ReviewStatus.PENDING);
-            verify(reviewProducer).send(TICKET);
+            verify(events).publishEvent(new ReviewSubmitted(TICKET));
         }
 
         @Test
@@ -118,7 +120,7 @@ class ReviewServiceIsolatedTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("maximum of 500 lines");
 
-            verify(reviewProducer, never()).send(any());
+            verify(events, never()).publishEvent(any(ReviewSubmitted.class));
             verify(reviewRepository, never()).save(any());
         }
 
@@ -132,7 +134,7 @@ class ReviewServiceIsolatedTest {
                     .isInstanceOf(RateLimitExceededException.class)
                     .hasMessageContaining("20 reviews per hour");
 
-            verify(reviewProducer, never()).send(any());
+            verify(events, never()).publishEvent(any(ReviewSubmitted.class));
         }
 
         @Test
@@ -160,7 +162,7 @@ class ReviewServiceIsolatedTest {
         @Test
         @DisplayName("usuário desconhecido não consegue enviar")
         void usuario_desconhecido() {
-            when(userRepository.findByEmail("ninguem@empresa.com")).thenReturn(Optional.empty());
+            when(userRepository.findByEmailForSubmission("ninguem@empresa.com")).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.submit(
                     new ReviewRequest("class A {}", Language.java, "A.java"), "ninguem@empresa.com"))
@@ -177,7 +179,7 @@ class ReviewServiceIsolatedTest {
                     "https://github.com/org/repo/blob/main/A.java", EMAIL);
 
             assertThat(resposta.ticketId()).isEqualTo(TICKET);
-            verify(reviewProducer).send(TICKET);
+            verify(events).publishEvent(new ReviewSubmitted(TICKET));
         }
     }
 
