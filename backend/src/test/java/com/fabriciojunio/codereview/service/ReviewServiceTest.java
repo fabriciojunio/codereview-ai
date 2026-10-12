@@ -4,7 +4,8 @@ import com.fabriciojunio.codereview.dto.ReviewRequest;
 import com.fabriciojunio.codereview.dto.ReviewResponse;
 import com.fabriciojunio.codereview.exception.RateLimitExceededException;
 import com.fabriciojunio.codereview.exception.ReviewNotFoundException;
-import com.fabriciojunio.codereview.messaging.ReviewProducer;
+import com.fabriciojunio.codereview.messaging.ReviewSubmitted;
+import org.springframework.context.ApplicationEventPublisher;
 import com.fabriciojunio.codereview.model.Review;
 import com.fabriciojunio.codereview.model.Review.Language;
 import com.fabriciojunio.codereview.model.User;
@@ -32,7 +33,7 @@ class ReviewServiceTest {
 
     @Mock private ReviewRepository reviewRepository;
     @Mock private UserRepository userRepository;
-    @Mock private ReviewProducer reviewProducer;
+    @Mock private ApplicationEventPublisher events;
 
     private ReviewService reviewService;
 
@@ -41,7 +42,7 @@ class ReviewServiceTest {
     @BeforeEach
     void setUp() {
         reviewService = new ReviewService(
-                reviewRepository, userRepository, reviewProducer,
+                reviewRepository, userRepository, events,
                 new ObjectMapper(), new SimpleMeterRegistry(), 20, 1, 500);
 
         testUser = User.builder()
@@ -55,7 +56,7 @@ class ReviewServiceTest {
 
     @Test
     void submit_validRequest_returnsTicketId() {
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.findByEmailForSubmission("test@example.com")).thenReturn(Optional.of(testUser));
         Review savedReview = Review.builder()
                 .id(UUID.randomUUID())
                 .user(testUser)
@@ -71,13 +72,11 @@ class ReviewServiceTest {
         ReviewResponse response = reviewService.submit(request, "test@example.com");
 
         assertThat(response.status()).isEqualTo(Review.ReviewStatus.PENDING);
-        verify(reviewProducer).send(any(UUID.class));
+        verify(events).publishEvent(any(ReviewSubmitted.class));
     }
 
     @Test
     void submit_exceedsLineLimit_throwsIllegalArgumentException() {
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
-
         String manyLines = "line\n".repeat(501);
         ReviewRequest request = new ReviewRequest(manyLines, Language.java, null);
 
@@ -90,7 +89,7 @@ class ReviewServiceTest {
     void submit_rateLimitExceeded_throwsRateLimitExceededException() {
         testUser.setReviewCountThisHour(20);
         testUser.setReviewWindowStart(Instant.now());
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.findByEmailForSubmission("test@example.com")).thenReturn(Optional.of(testUser));
 
         ReviewRequest request = new ReviewRequest("public class A {}", Language.java, null);
 
