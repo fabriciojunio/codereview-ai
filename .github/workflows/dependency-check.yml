@@ -2,7 +2,7 @@ name: Análise de Dependências (OWASP)
 
 on:
   pull_request:
-    branches: [main]
+    branches: ["produção", "homologação"]
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
