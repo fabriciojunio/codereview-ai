@@ -2,9 +2,9 @@ name: Análise de Segurança CodeQL
 
 on:
   push:
-    branches: [main]
+    branches: ["produção", "homologação"]
   pull_request:
-    branches: [main]
+    branches: ["produção", "homologação"]
   schedule:
     - cron: '0 8 * * 1'
 
