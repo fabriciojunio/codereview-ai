@@ -24,9 +24,15 @@ jobs:
       - name: Executar dependency-check (falha em CVSS >= 7)
         working-directory: backend
         env:
-          # Opcional: acelera o download da base NVD. Configure em Settings > Secrets.
+          # Opcional: acelera o download da base NVD.
+          # Configure o segredo NVD_API_KEY em Settings > Secrets.
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: mvn -B -Psecurity verify -DskipTests
+        run: |
+          if [ -z "${NVD_API_KEY:-}" ]; then
+            echo "Sem NVD_API_KEY; análise anônima da base NVD."
+            unset NVD_API_KEY
+          fi
+          mvn -B -Psecurity verify -DskipTests
       - name: Publicar relatório SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v3
