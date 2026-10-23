@@ -22,7 +22,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <postgres.embutido.version>16.2.0</postgres.embutido.version>
         <springdoc.version>2.8.17</springdoc.version>
-        <dependency-check.version>12.2.2</dependency-check.version>
+        <dependency-check.version>13.0.0</dependency-check.version>
         <okhttp.version>4.12.0</okhttp.version>
     </properties>
 
@@ -333,6 +333,8 @@
                         <configuration>
                             <!-- Falha o build a partir de CVSS 7.0 (High/Critical) -->
                             <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <!-- Espelho oficial evita limites da API; cache persistido semanalmente no CI. -->
+                            <nvdDatafeedUrl>https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz</nvdDatafeedUrl>
                             <formats>
                                 <format>HTML</format>
                                 <format>SARIF</format>
