@@ -4,7 +4,7 @@ import com.fabriciojunio.codereview.dto.ReviewRequest;
 import com.fabriciojunio.codereview.dto.ReviewResponse;
 import com.fabriciojunio.codereview.exception.RateLimitExceededException;
 import com.fabriciojunio.codereview.exception.ReviewNotFoundException;
-import com.fabriciojunio.codereview.messaging.ReviewProducer;
+import com.fabriciojunio.codereview.messaging.ReviewSubmitted;
 import com.fabriciojunio.codereview.model.Bug;
 import com.fabriciojunio.codereview.model.CodeSmell;
 import com.fabriciojunio.codereview.model.Review;
@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -39,14 +40,14 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
-    private final ReviewProducer reviewProducer;
+    private final ApplicationEventPublisher events;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
 
     public ReviewService(
             ReviewRepository reviewRepository,
             UserRepository userRepository,
-            ReviewProducer reviewProducer,
+            ApplicationEventPublisher events,
             ObjectMapper objectMapper,
             MeterRegistry meterRegistry,
             @Value("${review.rate-limit:20}") int rateLimit,
@@ -54,7 +55,7 @@ public class ReviewService {
             @Value("${review.max-lines:500}") int maxLines) {
         this.reviewRepository = reviewRepository;
         this.userRepository = userRepository;
-        this.reviewProducer = reviewProducer;
+        this.events = events;
         this.objectMapper = objectMapper;
         this.meterRegistry = meterRegistry;
         this.rateLimit = rateLimit;
@@ -64,9 +65,9 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponse submit(ReviewRequest request, String userEmail) {
-        User user = findUser(userEmail);
+        validateSource(request.sourceCode(), request.language(), request.filename());
+        User user = findUserForSubmission(userEmail);
         checkRateLimit(user);
-        validateLineCount(request.sourceCode());
 
         Review review = Review.builder()
                 .user(user)
@@ -78,7 +79,7 @@ public class ReviewService {
 
         Review persisted = reviewRepository.save(review);
         incrementRateLimit(user);
-        reviewProducer.send(persisted.getId());
+        events.publishEvent(new ReviewSubmitted(persisted.getId()));
 
         meterRegistry.counter("codereview.reviews.submitted",
                 "language", request.language().name()).increment();
@@ -95,9 +96,12 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponse submitGitHub(String sourceCode, Language language, String filename, String url, String userEmail) {
-        User user = findUser(userEmail);
+        validateSource(sourceCode, language, filename);
+        if (url != null && url.length() > 500) {
+            throw new IllegalArgumentException("Source URL must not exceed 500 characters");
+        }
+        User user = findUserForSubmission(userEmail);
         checkRateLimit(user);
-        validateLineCount(sourceCode);
 
         Review review = Review.builder()
                 .user(user)
@@ -110,7 +114,7 @@ public class ReviewService {
 
         Review persisted = reviewRepository.save(review);
         incrementRateLimit(user);
-        reviewProducer.send(persisted.getId());
+        events.publishEvent(new ReviewSubmitted(persisted.getId()));
 
         return ReviewResponse.pending(persisted.getId(), language, persisted.getSubmittedAt());
     }
@@ -210,7 +214,20 @@ public class ReviewService {
         userRepository.save(user);
     }
 
-    private void validateLineCount(String sourceCode) {
+    private void validateSource(String sourceCode, Language language, String filename) {
+        // Uploads and GitHub imports do not pass through @Valid ReviewRequest.
+        if (sourceCode == null || sourceCode.isBlank()) {
+            throw new IllegalArgumentException("Source code is required");
+        }
+        if (sourceCode.length() > 50000) {
+            throw new IllegalArgumentException("Source code must not exceed 50000 characters");
+        }
+        if (language == null) {
+            throw new IllegalArgumentException("Language is required");
+        }
+        if (filename != null && filename.length() > 255) {
+            throw new IllegalArgumentException("Filename must not exceed 255 characters");
+        }
         long lines = sourceCode.lines().count();
         if (lines > maxLines) {
             throw new IllegalArgumentException(
@@ -226,6 +243,12 @@ public class ReviewService {
 
     private User findUser(String email) {
         return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+    }
+
+    private User findUserForSubmission(String email) {
+        // Serialize quota updates for this account across threads and replicas.
+        return userRepository.findByEmailForSubmission(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
     }
 }

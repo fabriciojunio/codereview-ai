@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.13</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -21,8 +21,9 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <postgres.embutido.version>16.2.0</postgres.embutido.version>
-        <springdoc.version>2.6.0</springdoc.version>
-        <dependency-check.version>10.0.4</dependency-check.version>
+        <springdoc.version>2.8.17</springdoc.version>
+        <dependency-check.version>13.0.0</dependency-check.version>
+        <okhttp.version>4.12.0</okhttp.version>
     </properties>
 
     <dependencies>
@@ -174,11 +175,13 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
+            <version>${okhttp.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
+            <version>${okhttp.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -330,6 +333,8 @@
                         <configuration>
                             <!-- Falha o build a partir de CVSS 7.0 (High/Critical) -->
                             <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <!-- Espelho oficial evita limites da API; cache persistido semanalmente no CI. -->
+                            <nvdDatafeedUrl>https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz</nvdDatafeedUrl>
                             <formats>
                                 <format>HTML</format>
                                 <format>SARIF</format>
@@ -337,7 +342,6 @@
                             <suppressionFiles>
                                 <suppressionFile>owasp-suppressions.xml</suppressionFile>
                             </suppressionFiles>
-                            <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
                         </configuration>
                         <executions>
                             <execution>

@@ -21,11 +21,17 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+      - name: Definir período semanal da base de vulnerabilidades
+        id: cache-periodo
+        run: echo "semana=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      - name: Restaurar cache da base do Dependency-Check
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: odc-${{ runner.os }}-${{ steps.cache-periodo.outputs.semana }}
+          restore-keys: odc-${{ runner.os }}-
       - name: Executar dependency-check (falha em CVSS >= 7)
         working-directory: backend
-        env:
-          # Opcional: acelera o download da base NVD. Configure em Settings > Secrets.
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: mvn -B -Psecurity verify -DskipTests
       - name: Publicar relatório SARIF
         if: always()
