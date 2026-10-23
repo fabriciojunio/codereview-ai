@@ -22,7 +22,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <postgres.embutido.version>16.2.0</postgres.embutido.version>
         <springdoc.version>2.8.17</springdoc.version>
-        <dependency-check.version>13.0.0</dependency-check.version>
+        <dependency-check.version>12.2.2</dependency-check.version>
         <okhttp.version>4.12.0</okhttp.version>
     </properties>
 
@@ -340,7 +340,6 @@
                             <suppressionFiles>
                                 <suppressionFile>owasp-suppressions.xml</suppressionFile>
                             </suppressionFiles>
-                            <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
                         </configuration>
                         <executions>
                             <execution>
