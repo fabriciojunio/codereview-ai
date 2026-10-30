@@ -51,13 +51,9 @@ public class OllamaService {
                 return objectMapper.readValue(rawResponse, LlmAnalysisResult.class);
             } catch (JacksonException e) {
                 log.warn("LLM response parse failed on attempt {}/{}: {}", attempt, MAX_PARSE_RETRIES, e.getMessage());
-                if (attempt == MAX_PARSE_RETRIES) {
-                    throw new OllamaUnavailableException("LLM returned invalid JSON after " + MAX_PARSE_RETRIES + " attempts");
-                }
             }
         }
-        // Unreachable, but required for compilation
-        throw new OllamaUnavailableException("Unexpected state in analyze loop");
+        throw new OllamaUnavailableException("LLM returned invalid JSON after " + MAX_PARSE_RETRIES + " attempts");
     }
 
     private String callOllama(String prompt) {

@@ -81,7 +81,8 @@ class OllamaServiceTest {
 
         assertThatThrownBy(() -> ollamaService.analyze("test prompt"))
                 .isInstanceOf(OllamaUnavailableException.class)
-                .hasMessageContaining("invalid JSON");
+                .hasMessageContaining("invalid JSON after 3 attempts");
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(3);
     }
 
     @Test

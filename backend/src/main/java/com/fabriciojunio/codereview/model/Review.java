@@ -13,9 +13,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+// Only the id: printing the entity must not leak the password hash, the user's
+// source code or trigger lazy loading of relations.
+@ToString(onlyExplicitlyIncluded = true)
 public class Review {
 
     @Id
+    @ToString.Include
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
