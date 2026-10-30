@@ -7,6 +7,20 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Não Lançado]
 
+### Segurança (30/10/2026)
+- Spring Boot 3.3.13 para 4.1.2. A linha 3.x parou de receber correção em
+  junho de 2026 e o Dependency-Check acusava dezenas de CVEs no Spring, no
+  Netty e no Tomcat. Pelo caminho: starters em módulo (Flyway, cache, tracing,
+  teste de MVC e de segurança), Jackson 3 no código inteiro, `@MockitoBean` no
+  lugar de `@MockBean`, springdoc 3.1.1 e okhttp de teste alinhado ao do
+  OpenTelemetry
+- amqp-client 5.37.0 e OpenTelemetry 1.67.0 acima do que o Boot gerencia, para
+  fechar três altas do cliente do RabbitMQ e uma do OpenTelemetry. OSV sem achado
+- `@EnableCaching` sai da classe principal para o `RedisConfig`, e o mapeador do
+  cache deixa de ser bean: ele tomava o lugar do mapeador da aplicação
+- O 401 do `RestAuthenticationEntryPoint` ganhou teste do formato RFC 7807
+- Dependency-Check 13.0.0, que lê a base atual da NVD sem estourar campo
+
 ### Adicionado
 - Suporte a análise de código TypeScript via prompt especializado
 - Endpoint de métricas para monitoramento de análises realizadas

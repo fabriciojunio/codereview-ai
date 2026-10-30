@@ -1,43 +1,46 @@
 package com.fabriciojunio.codereview.config;
 
 import com.fabriciojunio.codereview.dto.ReviewResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 
+/**
+ * O cache liga aqui, junto do CacheManager que o atende, e não na classe
+ * principal: lá ele valeria também nos testes de fatia, que não têm Redis.
+ */
 @Configuration
+@EnableCaching
 public class RedisConfig {
 
     public static final String REVIEW_CACHE = "reviews";
     public static final Duration REVIEW_CACHE_TTL = Duration.ofHours(24);
 
-    @Bean
-    public ObjectMapper redisObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        return mapper;
-    }
+    /**
+     * Mapeador só do cache, fora do contexto: como bean, ele tomava o lugar do
+     * mapeador da aplicação. No Jackson 3 java.time já vem embutido e data sai em
+     * ISO-8601 por padrão.
+     */
+    private static final JsonMapper REDIS_MAPPER = JsonMapper.builder().build();
 
     /**
      * Serializador de valores tipado em {@link ReviewResponse}, o único objeto
-     * cacheado. Diferente de GenericJackson2JsonRedisSerializer, não usa default
+     * cacheado. Diferente de GenericJacksonJsonRedisSerializer, não usa default
      * typing (não grava metadados {@code @class}), eliminando o vetor de
      * desserialização insegura via gadgets caso o Redis seja adulterado.
      */
-    private Jackson2JsonRedisSerializer<ReviewResponse> reviewSerializer() {
-        return new Jackson2JsonRedisSerializer<>(redisObjectMapper(), ReviewResponse.class);
+    private JacksonJsonRedisSerializer<ReviewResponse> reviewSerializer() {
+        return new JacksonJsonRedisSerializer<>(REDIS_MAPPER, ReviewResponse.class);
     }
 
     @Bean

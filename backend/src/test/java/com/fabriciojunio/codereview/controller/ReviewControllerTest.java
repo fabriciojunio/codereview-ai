@@ -12,11 +12,11 @@ import com.fabriciojunio.codereview.service.GitHubFetcher;
 import com.fabriciojunio.codereview.service.OllamaService;
 import com.fabriciojunio.codereview.service.PromptBuilder;
 import com.fabriciojunio.codereview.service.ReviewService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -41,14 +41,14 @@ class ReviewControllerTest {
     @Autowired private ObjectMapper objectMapper;
 
     // Controller dependencies
-    @MockBean private ReviewService reviewService;
-    @MockBean private GitHubFetcher gitHubFetcher;
-    @MockBean private OllamaService ollamaService;
-    @MockBean private PromptBuilder promptBuilder;
+    @MockitoBean private ReviewService reviewService;
+    @MockitoBean private GitHubFetcher gitHubFetcher;
+    @MockitoBean private OllamaService ollamaService;
+    @MockitoBean private PromptBuilder promptBuilder;
 
     // Security infrastructure beans needed by JwtFilter (loaded by @WebMvcTest)
-    @MockBean private JwtProvider jwtProvider;
-    @MockBean private UserDetailsService userDetailsService;
+    @MockitoBean private JwtProvider jwtProvider;
+    @MockitoBean private UserDetailsService userDetailsService;
 
     @Test
     @WithMockUser
