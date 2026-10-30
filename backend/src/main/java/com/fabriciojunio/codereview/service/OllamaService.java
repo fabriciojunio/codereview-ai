@@ -4,8 +4,8 @@ import com.fabriciojunio.codereview.dto.LlmAnalysisResult;
 import com.fabriciojunio.codereview.dto.OllamaRequest;
 import com.fabriciojunio.codereview.dto.OllamaResponse;
 import com.fabriciojunio.codereview.exception.OllamaUnavailableException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,7 +49,7 @@ public class OllamaService {
             try {
                 String rawResponse = callOllama(prompt);
                 return objectMapper.readValue(rawResponse, LlmAnalysisResult.class);
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 log.warn("LLM response parse failed on attempt {}/{}: {}", attempt, MAX_PARSE_RETRIES, e.getMessage());
                 if (attempt == MAX_PARSE_RETRIES) {
                     throw new OllamaUnavailableException("LLM returned invalid JSON after " + MAX_PARSE_RETRIES + " attempts");

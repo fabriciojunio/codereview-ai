@@ -6,7 +6,7 @@ import com.fabriciojunio.codereview.model.Review;
 import com.fabriciojunio.codereview.model.Review.Language;
 import com.fabriciojunio.codereview.model.User;
 import com.fabriciojunio.codereview.repository.ReviewRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

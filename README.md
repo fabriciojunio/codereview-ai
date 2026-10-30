@@ -7,7 +7,7 @@ código submetido não sai da rede: em vez de chamar uma API de terceiro, a apli
 com um Ollama local. Devolve bugs, code smells, violação de SOLID e uma nota de 0 a 100 para
 Java, Python e JavaScript.
 
-`Java 21` · `Spring Boot 3.3` · `PostgreSQL` · `Redis` · `RabbitMQ` · `Ollama` · `Docker`
+`Java 21` · `Spring Boot 4.1` · `PostgreSQL` · `Redis` · `RabbitMQ` · `Ollama` · `Docker`
 
 ## O problema
 

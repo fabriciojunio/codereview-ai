@@ -3,8 +3,7 @@ package com.fabriciojunio.codereview.service;
 import com.fabriciojunio.codereview.dto.LlmAnalysisResult;
 import com.fabriciojunio.codereview.dto.OllamaResponse;
 import com.fabriciojunio.codereview.exception.OllamaUnavailableException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
@@ -30,7 +29,6 @@ class OllamaServiceTest {
         mockWebServer.start();
 
         objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
 
         WebClient webClient = WebClient.builder()
                 .baseUrl(mockWebServer.url("/").toString())

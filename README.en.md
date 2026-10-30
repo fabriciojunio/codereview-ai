@@ -7,7 +7,7 @@ code never leaves the network: instead of calling a third-party API, the applica
 local Ollama instance. It returns bugs, code smells, SOLID violations and a 0 to 100 quality
 score for Java, Python and JavaScript.
 
-`Java 21` · `Spring Boot 3.3` · `PostgreSQL` · `Redis` · `RabbitMQ` · `Ollama` · `Docker`
+`Java 21` · `Spring Boot 4.1` · `PostgreSQL` · `Redis` · `RabbitMQ` · `Ollama` · `Docker`
 
 ## The problem
 
