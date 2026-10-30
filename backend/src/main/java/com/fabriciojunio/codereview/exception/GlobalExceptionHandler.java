@@ -72,7 +72,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ProblemDetail handleAuth(AuthenticationException ex) {
+    public ProblemDetail handleAuth() {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Authentication required");
         pd.setTitle("Unauthorized");
         pd.setType(URI.create("urn:codereview:error:unauthorized"));
@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+    public ProblemDetail handleAccessDenied() {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Access denied");
         pd.setTitle("Forbidden");
         pd.setType(URI.create("urn:codereview:error:forbidden"));

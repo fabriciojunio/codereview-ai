@@ -4,8 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -78,18 +76,18 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("falha de autenticação vira 401 sem dizer o que errou")
     void autenticacao_vira_401_generico() {
-        ProblemDetail pd = handler.handleAuth(
-                new BadCredentialsException("senha do usuario maria@empresa.com nao confere"));
+        // O tratador nem recebe a exceção: a mensagem dela, que pode ter o
+        // e-mail de quem tentou entrar, não tem como chegar à resposta.
+        ProblemDetail pd = handler.handleAuth();
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(pd.getDetail()).isEqualTo("Authentication required");
-        assertThat(pd.getDetail()).doesNotContain("maria@empresa.com");
     }
 
     @Test
     @DisplayName("acesso negado vira 403")
     void acesso_negado_vira_403() {
-        ProblemDetail pd = handler.handleAccessDenied(new AccessDeniedException("sem permissao"));
+        ProblemDetail pd = handler.handleAccessDenied();
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
         assertThat(pd.getDetail()).isEqualTo("Access denied");
@@ -115,8 +113,8 @@ class GlobalExceptionHandlerTest {
                 handler.handleRateLimit(new RateLimitExceededException("x")),
                 handler.handleOllamaUnavailable(new OllamaUnavailableException("x")),
                 handler.handleIllegalArgument(new IllegalArgumentException("x")),
-                handler.handleAuth(new BadCredentialsException("x")),
-                handler.handleAccessDenied(new AccessDeniedException("x")),
+                handler.handleAuth(),
+                handler.handleAccessDenied(),
                 handler.handleGeneric(new RuntimeException("x")),
         };
 
