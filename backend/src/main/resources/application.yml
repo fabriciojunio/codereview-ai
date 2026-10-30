@@ -46,8 +46,8 @@ spring:
 
   jackson:
     default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
+    # No Jackson 3 data já sai em ISO-8601 por padrão; a opção de timestamp saiu
+    # de serialization e não precisa mais ser desligada aqui.
 
 ollama:
   base-url: ${OLLAMA_BASE_URL:http://localhost:11434}

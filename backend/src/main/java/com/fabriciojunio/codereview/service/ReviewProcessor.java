@@ -6,8 +6,8 @@ import com.fabriciojunio.codereview.exception.OllamaUnavailableException;
 import com.fabriciojunio.codereview.model.Review;
 import com.fabriciojunio.codereview.model.ReviewResult;
 import com.fabriciojunio.codereview.repository.ReviewRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
@@ -167,7 +167,7 @@ public class ReviewProcessor {
                     .refactoringSuggestionsJson(objectMapper.writeValueAsString(analysis.refactoringSuggestions()))
                     .positiveAspectsJson(objectMapper.writeValueAsString(analysis.positiveAspects()))
                     .build();
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize LLM result", e);
         }
     }

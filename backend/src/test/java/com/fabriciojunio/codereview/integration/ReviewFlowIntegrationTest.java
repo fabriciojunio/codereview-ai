@@ -6,16 +6,16 @@ import com.fabriciojunio.codereview.dto.ReviewRequest;
 import com.fabriciojunio.codereview.dto.ReviewResponse;
 import com.fabriciojunio.codereview.messaging.ReviewProducer;
 import com.fabriciojunio.codereview.model.Review.Language;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -27,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -98,12 +99,12 @@ class ReviewFlowIntegrationTest {
      * path, so a change in exchange or routing key still surfaces here, but
      * nothing opens a socket.
      *
-     * {@code @MockBean} rather than a {@code @TestConfiguration} bean: the
+     * {@code @MockitoBean} rather than a {@code @TestConfiguration} bean: the
      * latter collides with the one declared in {@code RabbitConfig} and would
      * force bean-definition overriding on globally, which hides genuine
      * duplicate-bean mistakes.
      */
-    @MockBean
+    @MockitoBean
     private RabbitTemplate rabbitTemplate;
 
     @Autowired
@@ -179,7 +180,15 @@ class ReviewFlowIntegrationTest {
         mockMvc.perform(post("/api/v1/reviews")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(review)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                // Mesmo formato RFC 7807 do GlobalExceptionHandler, com o timestamp no
+                // nível de cima e não aninhado em "properties".
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.detail").value("Authentication required"))
+                .andExpect(jsonPath("$.type").value("urn:codereview:error:unauthorized"))
+                .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test

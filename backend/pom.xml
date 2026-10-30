@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.13</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
 
@@ -21,15 +21,23 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <postgres.embutido.version>16.2.0</postgres.embutido.version>
-        <springdoc.version>2.6.0</springdoc.version>
-        <dependency-check.version>10.0.4</dependency-check.version>
+        <springdoc.version>3.1.1</springdoc.version>
+        <!-- O Boot 4 deixou de gerenciar o okhttp. Fica igual ao que o exportador do
+             OpenTelemetry usa em produção: duas versões no classpath se quebram. -->
+        <okhttp.version>5.3.2</okhttp.version>
+        <!-- Acima do que o Boot 4.1.2 gerencia, para fechar vulnerabilidades
+             conhecidas: amqp-client 5.30.0 tinha três altas (GHSA-68mj, GHSA-93j5,
+             GHSA-jh4v) e a API do OpenTelemetry 1.62.0 o GHSA-ccrj. -->
+        <rabbit-amqp-client.version>5.37.0</rabbit-amqp-client.version>
+        <opentelemetry.version>1.67.0</opentelemetry.version>
+        <dependency-check.version>13.0.0</dependency-check.version>
     </properties>
 
     <dependencies>
         <!-- Spring Boot Core -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -66,6 +74,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
+        <!-- @EnableCaching precisa do módulo de cache, separado no Boot 4. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
@@ -77,9 +90,11 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- No Boot 4 a configuração automática do Flyway saiu do núcleo: sem o
+             starter, a migração simplesmente não roda na subida. -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -117,6 +132,12 @@
           request to a RabbitMQ queue to an LLM call and back to Postgres, that
           is the difference between reading four logs and reading one timeline.
         -->
+        <!-- No Boot 4 a configuração do tracing virou módulo próprio: sem ele não
+             existe bean de Tracer, e quem o injeta não sobe. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-tracing-bridge-otel</artifactId>
@@ -152,14 +173,6 @@
 
         <!-- Utilities -->
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
@@ -171,19 +184,29 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- @WebMvcTest e @AutoConfigureMockMvc ficam neste módulo no Boot 4. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
+            <version>${okhttp.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
+            <version>${okhttp.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Traz o spring-security-test e a ligação dele com o MockMvc, que no Boot 4
+             saiu do núcleo: sem ela o @WithMockUser não chega à requisição. -->
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
