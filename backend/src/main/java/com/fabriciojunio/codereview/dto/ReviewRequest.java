@@ -13,5 +13,6 @@ public record ReviewRequest(
         @NotNull(message = "Language is required")
         Language language,
 
+        @Size(max = 255, message = "Filename must not exceed 255 characters")
         String filename
 ) {}

@@ -21,7 +21,7 @@ O projeto existe para resolver essa segunda parte. A análise em si é a parte f
 
 ## Decisões de arquitetura
 
-**A submissão não espera a análise.** `POST /reviews` grava o registro, publica na fila e
+**A submissão não espera a análise.** `POST /reviews` grava o registro e publica na fila após o commit, então
 devolve um ticket em milissegundos. Quem processa é um consumidor separado. Se o modelo
 demorar um minuto, o problema é do consumidor, não do cliente HTTP, e a aplicação continua
 aceitando submissão enquanto isso.
@@ -30,6 +30,13 @@ aceitando submissão enquanto isso.
 perde o trabalho em andamento quando a aplicação cai, e é justamente quando ela cai que se
 descobre que perdeu. Com RabbitMQ a mensagem sobrevive ao restart e o consumidor pode ser
 escalado sem tocar na aplicação web.
+
+Publicar após o commit evita que o consumidor receba um ticket ainda invisível
+no banco; uma transação revertida não entrega trabalho. Falha imediata de envio
+marca o ticket como `FAILED`, para permitir nova submissão. Não há outbox durável:
+uma queda entre o commit e o envio ainda exige recuperar os tickets pendentes.
+Os limites de código e a cota por conta também valem para upload e importação;
+a cota é atualizada com lock de linha no PostgreSQL.
 
 **Cache pelo hash do código, não pelo id.** Rodar duas vezes o mesmo arquivo é o caso mais
 comum em desenvolvimento, e é o mais caro. A chave do Redis é o conteúdo submetido, então
@@ -155,7 +162,7 @@ A resposta traz `score`, `summary`, `bugs`, `code_smells`, `solid_violations`,
 
 ## Testes
 
-173 testes em 22 classes, com o gate de cobertura travado no build. As chamadas ao Ollama são
+178 testes, com o gate de cobertura travado no build. As chamadas ao Ollama são
 atendidas por um MockWebServer, porque teste que depende de resposta de LLM não é determinístico,
 e o teste de fluxo completo sobe a aplicação inteira sem exigir Docker instalado: o PostgreSQL é
 embutido pelo próprio teste e o broker é substituído por um dublê.
